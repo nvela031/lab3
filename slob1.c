@@ -93,9 +93,9 @@ typedef s32 slobidx_t;
 
 /*Lab 3
  Our variable*/
-long claimed_memory[100];
-long free_memory[100];
-int current_index;
+long claimedMemory[100];
+long freeMemory[100];
+int index;
 /******************/
 
 struct slob_block {
@@ -300,8 +300,15 @@ static void *slob_page_alloc(struct page *sp, size_t size, int align)
 	}
 }
 
+/*
+ * The helper function, best_fit_check, 
+ * goes through the page's list of blocks and returns a number -1, 0 or some positive integer.  
+ *  0 means a perfect fitted block. Any positive integer represents the amount 
+ * that will be left over in the block if allocation happens and
+ *  -1 means that there is not enought space block.
+*/
 
-static int slob_page_best_fit_check(struct slob_page *sp, size_t size, int align)
+static int best_fit_check(struct slob_page *sp, size_t size, int align)
 {
 	slob_t *prev, *cur, *aligned = NULL;
 	int delta = 0, units = SLOB_UNITS(size);
@@ -333,6 +340,8 @@ static int slob_page_best_fit_check(struct slob_page *sp, size_t size, int align
 
 /*
  * slob_alloc: entry point into the slob allocator.
+ * SLOB main allocation routine and based on the requested size it 
+ * trying to find if a page of the list has enough room to acommodate.
  */
 static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 {
@@ -357,7 +366,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 	list_for_each_entry(sp, slob_list, list) {
 			int current_fit = -1;
 	
-              /*Lab 3 where the actual partially free memory amount is stored into partially_free*/
+              /*Lab 3 where the  free memory amount is stored*/
               temp_amt_free = temp_amt_free + sp-> units;
 
 
@@ -374,7 +383,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 			continue;
 
 #ifdef BEST_FIT
-		current_fit = slob_page_best_fit_check(sp, size, align);
+		current_fit = best_fit_check(sp, size, align);
 		if(current_fit == 0) {
 			best_sp = sp;
 			best_fit = current_fit;
@@ -400,8 +409,8 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 			continue;
 
 		/* Improve fragment distribution and reduce our average
-		 * search time by starting our next search here. (see
-		 * Knuth vol 1, sec 2.5, pg 449) */
+		 * search time by starting our next search here.
+		 * */
 		if (prev != slob_list->prev &&
 				slob_list->next != prev->next)
 			list_move_tail(slob_list, prev->next);
@@ -421,9 +430,9 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 		spin_lock_irqsave(&slob_lock, flags);
                 
  		/*Lab 3 Calculate the free/claimed inside the lock */
-                 claimed_memory[current_index] = size;
-                 free_memory[current_index] = (temp_amt_free * SLOB_UNIT) - SLOB_UNIT + 1;
-                 current_index = (current_index + 1) % 100;               
+                 claimedMemory[index] = size;
+                 freeMemory[index] = (temp_amt_free * SLOB_UNIT) - SLOB_UNIT + 1;
+                 index = (index + 1) % 100;               
  
 		sp->units = SLOB_UNITS(PAGE_SIZE);
 		sp->freelist = b;
@@ -732,7 +741,7 @@ void __init kmem_cache_init_late(void)
 	slab_state = FULL;
 }
 
-/*Lab3 Syscalls for memory info */
+/*Lab3 Syscalls for claimed memory */
 asmlinkage long sys_get_slob_amt_claimed(void){
 
     long result = 0;
@@ -740,7 +749,7 @@ asmlinkage long sys_get_slob_amt_claimed(void){
 
     for(i = 0; i < 100; i++)
     {
-          result = result + claimed_memory[i];
+          result = result + claimedMemory[i];
 
     }
 
@@ -749,13 +758,14 @@ asmlinkage long sys_get_slob_amt_claimed(void){
     return result;
 }
 
+/*Lab3 Syscalls for free memory */
 asmlinkage long sys_get_slob_amt_free(void) {
     long result = 0;
     int i = 0;
 
     for(i = 0; i < 100; i++)
     {
-       result = result + free_memory[i];
+       result = result + freeMemory[i];
     
     }
 
