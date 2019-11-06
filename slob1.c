@@ -75,6 +75,8 @@
 #include <trace/events/kmem.h>
 
 #include <linux/atomic.h>
+
+#define BEST_FIT
 /*
  * slob_block has a field 'units', which indicates size of block if +ve,
  * or offset of next block if -ve (in SLOB_UNITs).
@@ -240,7 +242,7 @@ static void *slob_page_alloc(struct page *sp, size_t size, int align)
 			aligned = (slob_t *)ALIGN((unsigned long)cur, align);
 			delta = aligned - cur;
 		}
-#ifdef SLOB_BEST_FIT_ALG
+#ifdef BEST_FIT
 		if (avail >= units + delta && (best_cur == NULL || avail - (units + delta) < best_fit) ) { /* room enough? */
 #else
 		if (avail >= units + delta) { /* room enough? */
@@ -251,7 +253,7 @@ static void *slob_page_alloc(struct page *sp, size_t size, int align)
 			best_delta = delta;
 			best_fit = avail - (units + delta);
 
-#ifdef SLOB_BEST_FIT_ALG
+#ifdef BEST_FIT
 		}
 		if (slob_last(cur)) {
 			if (best_cur != NULL) {
@@ -287,7 +289,7 @@ static void *slob_page_alloc(struct page *sp, size_t size, int align)
 				clear_slob_page_free(sp);
 			return best_cur;
 
-#ifdef SLOB_BEST_FIT_ALG
+#ifdef BEST_FIT
 			}
 #else
 		}
@@ -371,7 +373,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 		if (sp->units < SLOB_UNITS(size))
 			continue;
 
-#ifdef SLOB_BEST_FIT_ALG
+#ifdef BEST_FIT
 		current_fit = slob_page_best_fit_check(sp, size, align);
 		if(current_fit == 0) {
 			best_sp = sp;
@@ -393,7 +395,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 		prev = sp->list.prev;
 #endif
 		b = slob_page_alloc(sp, size, align);
-#ifndef SLOB_BEST_FIT_ALG
+#ifndef BEST_FIT
 		if (!b)
 			continue;
 
